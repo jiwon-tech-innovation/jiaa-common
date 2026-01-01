@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package jiaa.log;
+
+option java_multiple_files = true;
+option java_package = "com.jiaa.common.log";
+
+service LogService {
+  // 승민(Dev 4) -> 지원(Dev 6): 1초치 데이터 모음집 전송
+  rpc SendSystemLog(SystemLogRequest) returns (LogAck);
+}
+
+message SystemLogRequest {
+  string user_id = 1;        // "jiwon"
+  int64 timestamp = 2;       // 발생 시간
+
+  // 1. OS 데이터 (마우스, 키보드)
+  int32 mouse_distance = 3;
+  int32 keystroke_count = 4;
+  bool is_os_idle = 5;
+
+  // 2. Vision 데이터 (눈, 자세)
+  bool is_eyes_closed = 6;
+  float vision_score = 7;
+
+  // 3. AI 판단 결과 (있을 때만 채워서 보냄)
+  string detected_url_category = 8; // "PLAY", "STUDY"
+  bool is_emergency = 9;            // 위급 상황 여부
+}
+
+message LogAck {
+  bool success = 1;
+  string message = 2; // "저장 완료" or "에러"
+}

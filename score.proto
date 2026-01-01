@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package jiaa.score;
+
+import "google/protobuf/empty.proto"; // build.gradle에 의존성 필요
+
+option java_multiple_files = true;
+option java_package = "com.jiaa.common.score";
+
+service ScoreService {
+  // 종원이가 구독하면, 지원이가 점수를 계속 쏴줌
+  rpc SubscribeScore(google.protobuf.Empty) returns (stream ScoreUpdate);
+}
+
+message ScoreUpdate {
+  int32 current_score = 1;    // 0 ~ 100점
+  
+  enum UserState {
+    NORMAL = 0;
+    FOCUSING = 1;
+    DISTRACTED = 2;
+    SLEEPING = 3;
+    AFK = 4;             // 자리 비움
+    EMERGENCY = 5;       // 위급
+  }
+  UserState state = 2;        // 현재 상태
+  
+  string feedback_msg = 3;    // 화면에 띄울 한 줄 멘트 ("졸지 마세요!", "훌륭해요")
+  int64 timestamp = 4;
+}
