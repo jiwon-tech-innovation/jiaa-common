@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  influxdb:
+    image: influxdb:2.7
+    ports:
+      - "8086:8086"
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: user
+      DOCKER_INFLUXDB_INIT_PASSWORD: password123
+      DOCKER_INFLUXDB_INIT_ORG: jiaa
+      DOCKER_INFLUXDB_INIT_BUCKET: sensor_data
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: my-token
+
+  # Data Service (Node.js)
+  data-service:
+    build: ./jiaa-server-data
+    ports:
+      - "9090:9090"
+    depends_on:
+      - kafka
+      - influxdb
+    environment:
+      KAFKA_BROKER: kafka:29092
+      INFLUX_URL: http://influxdb:8086
+      INFLUX_TOKEN: my-token
+      GRPC_PORT: 0.0.0.0:9090
+    volumes:
+      - ./common:/common
+
+  # Core Service (Go)
+  core-service:
+    build:
+      context: ./jiaa-server-core
+      args:
+        SERVICE_NAME: input-service
+    ports:
+      - "8081:8080"
+      - "50052:50052"
+    depends_on:
+      - kafka
+    environment:
+      HTTP_PORT: 8080
+      KAFKA_BROKERS: kafka:29092
+      ACTIVITY_TOPIC: client-activity
+      STATE_TOPIC: command-state
+
+  ai-service:
+    build:
+      context: ./jiaa-server-ai
+      dockerfile: Dockerfile
+    container_name: jiaa_project2-ai-service-1
+    ports:
+      - "8000:8000"
+      - "50051:50051"
+    environment:
+      - KAFKA_BROKER=kafka:29092
+      - ACTIVITY_TOPIC=client-activity
+      - STATE_TOPIC=command-state
+    env_file:
+      - ./jiaa-server-ai/.env
+    depends_on:
+      - kafka
